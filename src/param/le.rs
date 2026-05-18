@@ -896,6 +896,27 @@ impl<'a, 'b: 'a> WriteHci for &'a [LePeriodicAdvSubeventData<'b>] {
     }
 }
 
+// TODO: define Channel Sounding (CS) related param types
+//   bitfield CsRoles[1] { (0, initiator, ..); (1, reflector, ..); }
+//   bitfield CsModes[1] { (0, mode3, ..); }
+//   bitfield CsRttCapability[1] { (0..5, rtt_accuracy, ..); }
+//   bitfield CsNadmCapability[2] { (0, phase_based, ..); (1, amplitude_based, ..); }
+//   bitfield CsSyncPhysSupported[1] { (1, le_2m, ..); (2, le_2m_2bt, ..); }
+//   bitfield CsSubfeatures[2] { (1, no_fae, ..); (2, ch3c, ..); (3, phase_based_ranging, ..); (4, ipt, ..); (5, rtt_per_phy, ..); }
+//   bitfield CsTxxTimesSupported[2] { (0..6, time_us, ..); }
+//   bitfield CsTxSnrCapability[1] { (0..4, snr_db, ..); }
+//   bitfield CsEnhancements[1] { (0, ipt_enabled, ..); }
+//   struct CsChannelMap([u8; 10])  // 80-bit map, 79 bits meaningful for CS channels 0-78
+//   struct CsFaeTable([u8; 72])    // 72-byte per-channel Frequency Actuation Error table
+//   struct LeAllFeatureMask([u8; 248])  // 248-byte multi-page LE feature mask
+
+// TODO: define param types for LE Periodic Advertising Response Report
+//   struct LePeriodicAdvResponseReportEntry<'a> { tx_power: i8, rssi: i8, cte_type: u8, response_slot: u8, data_status: u8, data_length: u8, data: &'a [u8] }
+//   struct LePeriodicAdvResponseReportData<'a> { num_responses: u8, bytes: RemainingBytes<'a> } + iterator
+
+// TODO: define param types for CS Subevent Result step data (Mode_Role_Specific_Info)
+//   For each mode (0-3) and role (initiator/reflector), different format
+
 #[cfg(test)]
 mod tests {
     use super::*;
