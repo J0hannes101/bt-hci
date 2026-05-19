@@ -415,6 +415,7 @@ param! {
         AoA = 0,
         AoD1Us = 1,
         AoD2Us = 2,
+        NoCte = 0xff,
     }
 }
 
@@ -515,6 +516,7 @@ param! {
         #[default]
         Complete = 0,
         Incomplete = 1,
+        Failed = 0xff,
     }
 }
 
@@ -526,6 +528,15 @@ param! {
         CrcIncorrectUsedLength = 1,
         CrcIncorrectUsedOther = 2,
         InsufficientResources = 0xff,
+    }
+}
+
+param! {
+    #[derive(Default)]
+    enum TxStatus {
+        #[default]
+        Transmitted = 0,
+        NotTransmitted = 1,
     }
 }
 
@@ -896,23 +907,137 @@ impl<'a, 'b: 'a> WriteHci for &'a [LePeriodicAdvSubeventData<'b>] {
     }
 }
 
-// TODO: define Channel Sounding (CS) related param types
-//   bitfield CsRoles[1] { (0, initiator, ..); (1, reflector, ..); }
-//   bitfield CsModes[1] { (0, mode3, ..); }
-//   bitfield CsRttCapability[1] { (0..5, rtt_accuracy, ..); }
-//   bitfield CsNadmCapability[2] { (0, phase_based, ..); (1, amplitude_based, ..); }
-//   bitfield CsSyncPhysSupported[1] { (1, le_2m, ..); (2, le_2m_2bt, ..); }
-//   bitfield CsSubfeatures[2] { (1, no_fae, ..); (2, ch3c, ..); (3, phase_based_ranging, ..); (4, ipt, ..); (5, rtt_per_phy, ..); }
-//   bitfield CsTxxTimesSupported[2] { (0..6, time_us, ..); }
-//   bitfield CsTxSnrCapability[1] { (0..4, snr_db, ..); }
-//   bitfield CsEnhancements[1] { (0, ipt_enabled, ..); }
-//   struct CsChannelMap([u8; 10])  // 80-bit map, 79 bits meaningful for CS channels 0-78
-//   struct CsFaeTable([u8; 72])    // 72-byte per-channel Frequency Actuation Error table
-//   struct LeAllFeatureMask([u8; 248])  // 248-byte multi-page LE feature mask
+#[allow(missing_docs)]
+fn read_n<'a, T: ByteAlignedValue>(data: &'a [u8], n: usize) -> Result<(&'a [T], &'a [u8]), FromHciBytesError> {
+    let size = n * core::mem::size_of::<T>();
+    if data.len() < size {
+        return Err(FromHciBytesError::InvalidSize);
+    }
+    let (bytes, rest) = data.split_at(size);
+    let slice = unsafe { core::slice::from_raw_parts(bytes.as_ptr() as *const T, n) };
+    Ok((slice, rest))
+}
 
-// TODO: define param types for LE Periodic Advertising Response Report
-//   struct LePeriodicAdvResponseReportEntry<'a> { tx_power: i8, rssi: i8, cte_type: u8, response_slot: u8, data_status: u8, data_length: u8, data: &'a [u8] }
-//   struct LePeriodicAdvResponseReportData<'a> { num_responses: u8, bytes: RemainingBytes<'a> } + iterator
+param! {
+    struct LePeriodicAdvertisingResponseReport<'a> {
+        tx_power: i8,
+        rssi: i8,
+        cte_type: CteKind,
+        response_slot: u8,
+        data_status: DataStatus,
+        data_length: u8,
+        data: &'a [u8],
+    }
+}
+
+/// Container for periodic advertising response report data.
+#[derive(Debug, Clone, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct LePeriodicAdvertisingResponseReports<'a> {
+    num_responses: u8,
+    tx_power: &'a [i8],
+    rssi: &'a [i8],
+    cte_type: &'a [CteKind],
+    response_slot: &'a [u8],
+    data_status: &'a [DataStatus],
+    data_length: &'a [u8],
+    data: &'a [u8],
+}
+
+impl<'a> LePeriodicAdvertisingResponseReports<'a> {
+    /// Returns `true` if there are no responses.
+    pub fn is_empty(&self) -> bool {
+        self.num_responses == 0
+    }
+
+    /// Returns the number of responses.
+    pub fn len(&self) -> usize {
+        usize::from(self.num_responses)
+    }
+
+    /// Returns the response entry at the given index, or `None` if out of bounds.
+    pub fn get(&self, index: usize) -> Option<LePeriodicAdvertisingResponseReport<'a>> {
+        if index >= self.len() {
+            return None;
+        }
+        let data_offset: usize = self.data_length[..index].iter().map(|&l| l as usize).sum();
+        let data_len = self.data_length[index] as usize;
+        Some(LePeriodicAdvertisingResponseReport {
+            tx_power: self.tx_power[index],
+            rssi: self.rssi[index],
+            cte_type: self.cte_type[index],
+            response_slot: self.response_slot[index],
+            data_status: self.data_status[index],
+            data_length: self.data_length[index],
+            data: &self.data[data_offset..data_offset + data_len],
+        })
+    }
+
+    /// Returns an iterator over all response entries.
+    pub fn iter(&self) -> LePeriodicAdvertisingResponseReportsIter<'_> {
+        LePeriodicAdvertisingResponseReportsIter {
+            reports: self,
+            index: 0,
+        }
+    }
+}
+
+impl<'de> FromHciBytes<'de> for LePeriodicAdvertisingResponseReports<'de> {
+    fn from_hci_bytes(data: &'de [u8]) -> Result<(Self, &'de [u8]), FromHciBytesError> {
+        let (num_responses, data) = u8::from_hci_bytes(data)?;
+        let n = num_responses as usize;
+
+        let (tx_power, data) = read_n::<i8>(data, n)?;
+        let (rssi, data) = read_n::<i8>(data, n)?;
+        let (cte_type, data) = read_n::<CteKind>(data, n)?;
+        let (response_slot, data) = read_n::<u8>(data, n)?;
+        let (data_status, data) = read_n::<DataStatus>(data, n)?;
+        let (data_length, data) = read_n::<u8>(data, n)?;
+
+        Ok((
+            Self {
+                num_responses,
+                tx_power,
+                rssi,
+                cte_type,
+                response_slot,
+                data_status,
+                data_length,
+                data,
+            },
+            &[],
+        ))
+    }
+}
+
+/// An iterator over the LePeriodicAdvertisingResponse reports.
+pub struct LePeriodicAdvertisingResponseReportsIter<'a> {
+    reports: &'a LePeriodicAdvertisingResponseReports<'a>,
+    index: usize,
+}
+
+impl<'a> Iterator for LePeriodicAdvertisingResponseReportsIter<'a> {
+    type Item = LePeriodicAdvertisingResponseReport<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let entry = self.reports.get(self.index)?;
+        self.index += 1;
+        Some(entry)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.reports.len() - self.index;
+        (remaining, Some(remaining))
+    }
+}
+
+impl ExactSizeIterator for LePeriodicAdvertisingResponseReportsIter<'_> {
+    fn len(&self) -> usize {
+        self.reports.len() - self.index
+    }
+}
+
+impl FusedIterator for LePeriodicAdvertisingResponseReportsIter<'_> {}
 
 // TODO: define param types for CS Subevent Result step data (Mode_Role_Specific_Info)
 //   For each mode (0-3) and role (initiator/reflector), different format
@@ -943,5 +1068,27 @@ mod tests {
         for chan in 37..40 {
             assert!(m.is_channel_bad(chan));
         }
+    }
+
+    #[test]
+    fn test_read_n_ok() {
+        let buf = [0x01, 0x02, 0x03, 0x04, 0x05];
+        let (slice, rest) = read_n::<u8>(&buf, 3).unwrap();
+        assert_eq!(slice, &[0x01, 0x02, 0x03]);
+        assert_eq!(rest, &[0x04, 0x05]);
+    }
+
+    #[test]
+    fn test_read_n_overflow() {
+        let buf = [0x01, 0x02];
+        assert!(read_n::<u8>(&buf, 3).is_err());
+    }
+
+    #[test]
+    fn test_read_n_zero() {
+        let buf = [0x01, 0x02, 0x03];
+        let (slice, rest) = read_n::<u8>(&buf, 0).unwrap();
+        assert!(slice.is_empty());
+        assert_eq!(rest, &[0x01, 0x02, 0x03]);
     }
 }

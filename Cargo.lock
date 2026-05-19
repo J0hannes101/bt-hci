@@ -28,6 +28,7 @@ name = "bt-hci"
 version = "0.9.0"
 dependencies = [
  "btuuid",
+ "critical-section",
  "defmt 1.0.1",
  "embassy-sync",
  "embassy-time",

@@ -1335,4 +1335,77 @@ mod tests {
         assert_eq!(event.cmd_opcode, Opcode::new(OpcodeGroup::LE, 0x000d));
         assert_eq!(Status::SUCCESS, event.status);
     }
+
+    #[test]
+    fn parse_le_periodic_adv_response_report() {
+        // 2 responses: data[0] = [0xBE, 0xEF], data[1] = [0xAA, 0xBB, 0xCC]
+        let data = [
+            0x3e, 22,   // event header: LE Meta, param total = 22
+            0x28, // subevent: LE Periodic Advertising Response Report (40)
+            0x01, // adv_handle
+            0x00, // subevent
+            0x00, // tx_status = Transmitted
+            0x02, // num_responses = 2
+            0x0A, 0xF6, // tx_power [10, -10]
+            0xE2, 0x1E, // rssi [-30, 30]
+            0x00, 0xFF, // cte_type [AoA, NoCte]
+            0x00, 0x01, // response_slot [0, 1]
+            0x00, 0xFF, // data_status [Complete, Failed]
+            0x02, 0x03, // data_length [2, 3]
+            0xBE, 0xEF, // data[0]
+            0xAA, 0xBB, 0xCC, // data[1]
+        ];
+        let event = EventPacket::from_hci_bytes_complete(&data).unwrap();
+        assert!(matches!(event.kind, EventKind::Le));
+
+        let le = LeEventPacket::from_hci_bytes_complete(event.data).unwrap();
+        assert!(matches!(
+            le.kind,
+            crate::event::le::LeEventKind::LePeriodicAdvertisingResponseReport
+        ));
+
+        let Event::Le(LeEvent::LePeriodicAdvertisingResponseReport(e)) = Event::try_from(event).unwrap() else {
+            unreachable!()
+        };
+
+        assert_eq!(e.adv_handle, crate::param::AdvHandle::new(1));
+        assert_eq!(e.subevent, 0);
+        assert_eq!(e.tx_status, crate::param::TxStatus::Transmitted);
+        assert_eq!(e.reports.len(), 2);
+
+        let r0 = e.reports.get(0).unwrap();
+        assert_eq!(r0.tx_power, 10);
+        assert_eq!(r0.rssi, -30);
+        assert_eq!(r0.cte_type, crate::param::CteKind::AoA);
+        assert_eq!(r0.response_slot, 0);
+        assert_eq!(r0.data_status, crate::param::DataStatus::Complete);
+        assert_eq!(r0.data, &[0xBE, 0xEF]);
+
+        let r1 = e.reports.get(1).unwrap();
+        assert_eq!(r1.tx_power, -10);
+        assert_eq!(r1.rssi, 30);
+        assert_eq!(r1.cte_type, crate::param::CteKind::NoCte);
+        assert_eq!(r1.response_slot, 1);
+        assert_eq!(r1.data_status, crate::param::DataStatus::Failed);
+        assert_eq!(r1.data, &[0xAA, 0xBB, 0xCC]);
+
+        assert!(e.reports.get(2).is_none());
+
+        // Test the iterator via the event convenience methods
+        let collected: heapless::Vec<_, 2> = e.reports.iter().collect();
+        assert_eq!(collected.len(), 2);
+        assert_eq!(collected[0].tx_power, 10);
+        assert_eq!(collected[1].tx_power, -10);
+
+        // Test ExactSizeIterator contract on the reports iterator
+        let mut iter = e.reports.iter();
+        assert_eq!(iter.len(), 2);
+        assert_eq!(iter.size_hint(), (2, Some(2)));
+        let _ = iter.next();
+        assert_eq!(iter.len(), 1);
+        assert_eq!(iter.size_hint(), (1, Some(1)));
+        let _ = iter.next();
+        assert_eq!(iter.len(), 0);
+        assert!(iter.next().is_none());
+    }
 }

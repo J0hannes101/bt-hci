@@ -3,8 +3,8 @@
 use crate::param::{
     AddrKind, AdvHandle, BdAddr, BigHandle, BisConnHandle, ClockAccuracy, ConnHandle, CteKind, DataStatus, Duration,
     ExtDuration, FrameSpaceInitiator, LeAdvReports, LeConnRole, LeDirectedAdvertisingReportParam, LeExtAdvReports,
-    LeFeatureMask, LeIQSample, LeTxPowerReportingReason, PacketStatus, PhyKind, PhyMask, PowerLevelKind,
-    RemainingBytes, SpacingTypes, Status, SyncHandle, ZoneEntered,
+    LeFeatureMask, LeIQSample, LePeriodicAdvertisingResponseReports, LeTxPowerReportingReason, PacketStatus, PhyKind,
+    PhyMask, PowerLevelKind, RemainingBytes, SpacingTypes, Status, SyncHandle, TxStatus, ZoneEntered,
 };
 use crate::{FromHciBytes, FromHciBytesError};
 
@@ -472,10 +472,12 @@ le_events! {
         subevent_data_count: u8,
     }
 
-    /// TODO: implement LE Periodic Advertising Response Report event
-    /// [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-7f8dc3f0-80f4-724d-bc78-51d22c615df1)
+    /// LE Periodic Advertising Response Report event [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-7f8dc3f0-80f4-724d-bc78-51d22c615df1)
     struct LePeriodicAdvertisingResponseReport<'a>(40) {
-        _data: RemainingBytes<'a>,
+        adv_handle: AdvHandle,
+        subevent: u8,
+        tx_status: TxStatus,
+        reports: LePeriodicAdvertisingResponseReports<'a>,
     }
 
     /// LE Enhanced Connection Complete event [v2] [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-ed5dc708-ff96-949f-586a-4d418466b226)
