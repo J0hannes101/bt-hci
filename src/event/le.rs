@@ -608,10 +608,9 @@ le_events! {
         spacing_types: SpacingTypes,
     }
 
-    /// TODO: implement LE UTP Receive event
-    /// [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-0fb41a62-3180-485f-92b9-1701c900dd00)
+    /// LE UTP Receive event [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-0fb41a62-3180-485f-92b9-1701c900dd00)
     struct LeUtpReceive<'a>(54) {
-        _data: RemainingBytes<'a>,
+        utp_data: &'a [u8],
     }
 
     /// LE Connection Rate Change event [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-62/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-2c599471-bc69-6495-ccfa-56be30d10311)

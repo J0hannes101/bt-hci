@@ -1484,4 +1484,25 @@ mod tests {
         assert_eq!(iter.len(), 0);
         assert!(iter.next().is_none());
     }
+
+    #[test]
+    fn parse_le_utp_receive() {
+        let data = [
+            0x3e, 5,  // event header: LE Meta, param total = 5
+            0x36, // subevent: LE UTP Receive (54)
+            0x03, // utp_data_length = 3
+            0xAA, 0xBB, 0xCC, // utp_data
+        ];
+        let event = EventPacket::from_hci_bytes_complete(&data).unwrap();
+        assert!(matches!(event.kind, EventKind::Le));
+
+        let le = LeEventPacket::from_hci_bytes_complete(event.data).unwrap();
+        assert!(matches!(le.kind, crate::event::le::LeEventKind::LeUtpReceive));
+
+        let Event::Le(LeEvent::LeUtpReceive(e)) = Event::try_from(event).unwrap() else {
+            unreachable!()
+        };
+
+        assert_eq!(e.utp_data, &[0xAA, 0xBB, 0xCC]);
+    }
 }
