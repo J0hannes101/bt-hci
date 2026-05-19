@@ -1,10 +1,11 @@
 //! LE Meta events [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-9bfbd351-a103-f197-b85f-ffd9dcc92872)
 
 use crate::param::{
-    AddrKind, AdvHandle, BdAddr, BigHandle, BisConnHandle, ClockAccuracy, ConnHandle, CteKind, DataStatus, Duration,
-    ExtDuration, FrameSpaceInitiator, LeAdvReports, LeConnRole, LeDirectedAdvertisingReportParam, LeExtAdvReports,
-    LeFeatureMask, LeIQSample, LePeriodicAdvertisingResponseReports, LeTxPowerReportingReason, PacketStatus, PhyKind,
-    PhyMask, PowerLevelKind, RemainingBytes, SpacingTypes, Status, SyncHandle, TxStatus, ZoneEntered,
+    AddrKind, AdvHandle, BdAddr, BigHandle, BisConnHandle, ClockAccuracy, ConnHandle, CteKind, DataStatus, DoneStatus,
+    Duration, ExtDuration, FrameSpaceInitiator, FrequencyCompensation, LeAdvReports, LeConnRole, LeCsSubeventStepData,
+    LeDirectedAdvertisingReportParam, LeExtAdvReports, LeFeatureMask, LeIQSample, LePeriodicAdvertisingResponseReports,
+    LeTxPowerReportingReason, PackedAbortReasons, PacketStatus, PhyKind, PhyMask, PowerLevelKind, RemainingBytes,
+    SpacingTypes, Status, SyncHandle, TxStatus, ZoneEntered,
 };
 use crate::{FromHciBytes, FromHciBytesError};
 
@@ -559,16 +560,30 @@ le_events! {
         _data: RemainingBytes<'a>,
     }
 
-    /// TODO: implement LE CS Subevent Result event
-    /// [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-fd033d23-c560-45ed-27e6-4a5da97b7ba4)
+    /// LE CS Subevent Result event [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-fd033d23-c560-45ed-27e6-4a5da97b7ba4)
     struct LeCsSubeventResult<'a>(49) {
-        _data: RemainingBytes<'a>,
+        connection_handle: ConnHandle,
+        config_id: u8,
+        start_acl_conn_event_counter: u16,
+        procedure_counter: u16,
+        frequency_compensation: FrequencyCompensation,
+        reference_power_level: i8,
+        procedure_done_status: DoneStatus,
+        subevent_done_status: DoneStatus,
+        abort_reason: PackedAbortReasons,
+        num_antenna_paths: u8,
+        steps: LeCsSubeventStepData<'a>,
     }
 
-    /// TODO: implement LE CS Subevent Result Continue event
-    /// [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-4f3f5e64-3080-5a09-bcb1-3ca8d5c42327)
+    /// LE CS Subevent Result Continue event [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-4f3f5e64-3080-5a09-bcb1-3ca8d5c42327)
     struct LeCsSubeventResultContinue<'a>(50) {
-        _data: RemainingBytes<'a>,
+        connection_handle: ConnHandle,
+        config_id: u8,
+        procedure_done_status: DoneStatus,
+        subevent_done_status: DoneStatus,
+        abort_reason: PackedAbortReasons,
+        num_antenna_paths: u8,
+        steps: LeCsSubeventStepData<'a>,
     }
 
     /// LE CS Test End Complete event [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-2d452e0d-d8bf-7e34-1ba0-f24b24c48f64)

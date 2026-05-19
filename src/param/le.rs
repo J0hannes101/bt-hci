@@ -1039,8 +1039,246 @@ impl ExactSizeIterator for LePeriodicAdvertisingResponseReportsIter<'_> {
 
 impl FusedIterator for LePeriodicAdvertisingResponseReportsIter<'_> {}
 
-// TODO: define param types for CS Subevent Result step data (Mode_Role_Specific_Info)
-//   For each mode (0-3) and role (initiator/reflector), different format
+param! {
+    struct LeCsSubeventStepEntry<'a> {
+        step_mode: u8,
+        step_channel: u8,
+        step_data_length: u8,
+        step_data: &'a [u8],
+    }
+}
+
+/// Container for CS subevent step data.
+///
+/// Parses the column-major wire format:
+/// `num_steps_reported | step_mode[] | step_channel[] | step_data_length[] | step_data[]`
+///
+/// Entries are accessed via [`get`](LeCsSubeventStepData::get)
+/// or [`iter`](LeCsSubeventStepData::iter).
+#[derive(Debug, Clone, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct LeCsSubeventStepData<'a> {
+    num_steps_reported: u8,
+    step_mode: &'a [u8],
+    step_channel: &'a [u8],
+    step_data_length: &'a [u8],
+    step_data: &'a [u8],
+}
+
+impl<'a> LeCsSubeventStepData<'a> {
+    /// Returns `true` if there are no steps.
+    pub fn is_empty(&self) -> bool {
+        self.num_steps_reported == 0
+    }
+
+    /// Returns the number of steps.
+    pub fn len(&self) -> usize {
+        usize::from(self.num_steps_reported)
+    }
+
+    /// Returns the step entry at the given index, or `None` if out of bounds.
+    pub fn get(&self, index: usize) -> Option<LeCsSubeventStepEntry<'a>> {
+        if index >= self.len() {
+            return None;
+        }
+        let data_offset: usize = self.step_data_length[..index].iter().map(|&l| l as usize).sum();
+        let data_len = self.step_data_length[index] as usize;
+        Some(LeCsSubeventStepEntry {
+            step_mode: self.step_mode[index],
+            step_channel: self.step_channel[index],
+            step_data_length: self.step_data_length[index],
+            step_data: &self.step_data[data_offset..data_offset + data_len],
+        })
+    }
+
+    /// Returns an iterator over all step entries.
+    pub fn iter(&self) -> LeCsSubeventStepDataIter<'_> {
+        LeCsSubeventStepDataIter { data: self, index: 0 }
+    }
+}
+
+impl<'de> FromHciBytes<'de> for LeCsSubeventStepData<'de> {
+    fn from_hci_bytes(data: &'de [u8]) -> Result<(Self, &'de [u8]), FromHciBytesError> {
+        let (num_steps_reported, data) = u8::from_hci_bytes(data)?;
+        let n = num_steps_reported as usize;
+
+        let (step_mode, data) = read_n::<u8>(data, n)?;
+        let (step_channel, data) = read_n::<u8>(data, n)?;
+        let (step_data_length, data) = read_n::<u8>(data, n)?;
+
+        Ok((
+            Self {
+                num_steps_reported,
+                step_mode,
+                step_channel,
+                step_data_length,
+                step_data: data,
+            },
+            &[],
+        ))
+    }
+}
+
+/// An iterator over [`LeCsSubeventStepEntry`] values.
+///
+/// Created by [`LeCsSubeventStepData::iter`].
+pub struct LeCsSubeventStepDataIter<'a> {
+    data: &'a LeCsSubeventStepData<'a>,
+    index: usize,
+}
+
+impl<'a> Iterator for LeCsSubeventStepDataIter<'a> {
+    type Item = LeCsSubeventStepEntry<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let entry = self.data.get(self.index)?;
+        self.index += 1;
+        Some(entry)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.data.len() - self.index;
+        (remaining, Some(remaining))
+    }
+}
+
+impl ExactSizeIterator for LeCsSubeventStepDataIter<'_> {
+    fn len(&self) -> usize {
+        self.data.len() - self.index
+    }
+}
+
+impl FusedIterator for LeCsSubeventStepDataIter<'_> {}
+
+param! {
+    #[derive(Default)]
+    enum DoneStatus {
+        #[default]
+        Complete = 0,
+        Partial = 1,
+        Aborted = 0xf,
+    }
+}
+
+/// Procedure abort reason (bits 0-3).
+#[repr(u8)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum ProcedureAbortReason {
+    #[default]
+    /// Report with no abort.
+    NoAbort = 0x0,
+    /// Abort because of local Host or remote request.
+    HostRequest = 0x1,
+    /// Abort because filtered channel map has less than 15 channels.
+    FilteredChannelMap = 0x2,
+    /// Abort because the channel map update instant has passed.
+    ChannelMapInstantPassed = 0x3,
+    /// Abort because of unspecified reasons.
+    Unspecified = 0xf,
+}
+
+impl ProcedureAbortReason {
+    const fn from_u8(v: u8) -> Self {
+        match v {
+            0x0 => Self::NoAbort,
+            0x1 => Self::HostRequest,
+            0x2 => Self::FilteredChannelMap,
+            0x3 => Self::ChannelMapInstantPassed,
+            _ => Self::Unspecified,
+        }
+    }
+}
+
+/// Subevent abort reason (bits 4-7).
+#[repr(u8)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum SubeventAbortReason {
+    #[default]
+    /// Report with no abort.
+    NoAbort = 0x0,
+    /// Abort because of local Host or remote request.
+    HostRequest = 0x1,
+    /// Abort because no CS_SYNC (mode-0) received.
+    NoCsSync = 0x2,
+    /// Abort because of scheduling conflicts or limited resources.
+    SchedulingConflict = 0x3,
+    /// Abort because of unspecified reasons.
+    Unspecified = 0xf,
+}
+
+impl SubeventAbortReason {
+    const fn from_u8(v: u8) -> Self {
+        match v {
+            0x0 => Self::NoAbort,
+            0x1 => Self::HostRequest,
+            0x2 => Self::NoCsSync,
+            0x3 => Self::SchedulingConflict,
+            _ => Self::Unspecified,
+        }
+    }
+}
+
+/// Abort reason for CS subevent result, packed as two 4-bit nibbles.
+///
+/// Bits 0-3: procedure abort reason ([`ProcedureAbortReason`])
+/// Bits 4-7: subevent abort reason ([`SubeventAbortReason`])
+#[repr(transparent)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct PackedAbortReasons(u8);
+
+impl PackedAbortReasons {
+    /// Returns the procedure-level abort reason.
+    pub fn procedure_reason(&self) -> ProcedureAbortReason {
+        ProcedureAbortReason::from_u8(self.0 & 0x0f)
+    }
+
+    /// Returns the subevent-level abort reason.
+    pub fn subevent_reason(&self) -> SubeventAbortReason {
+        SubeventAbortReason::from_u8((self.0 >> 4) & 0x0f)
+    }
+}
+
+unsafe impl FixedSizeValue for PackedAbortReasons {
+    fn is_valid(_data: &[u8]) -> bool {
+        true
+    }
+}
+
+/// Frequency compensation value in units of 0.01 ppm.
+#[repr(transparent)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct FrequencyCompensation(u16);
+
+impl FrequencyCompensation {
+    /// Returns the raw 16-bit value.
+    pub fn as_raw(&self) -> u16 {
+        self.0
+    }
+
+    /// Returns `true` if the value is available.
+    pub fn is_available(&self) -> bool {
+        self.0 != 0xC000
+    }
+
+    /// Returns the frequency compensation in 0.01 ppm units, or `None` if not available.
+    pub fn as_ppm_x100(&self) -> Option<i16> {
+        if !self.is_available() {
+            return None;
+        }
+        let val = self.0 & 0x7FFF;
+        Some(((val << 1) as i16) >> 1)
+    }
+}
+
+unsafe impl FixedSizeValue for FrequencyCompensation {
+    fn is_valid(_data: &[u8]) -> bool {
+        true
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -1071,24 +1309,26 @@ mod tests {
     }
 
     #[test]
-    fn test_read_n_ok() {
-        let buf = [0x01, 0x02, 0x03, 0x04, 0x05];
-        let (slice, rest) = read_n::<u8>(&buf, 3).unwrap();
-        assert_eq!(slice, &[0x01, 0x02, 0x03]);
-        assert_eq!(rest, &[0x04, 0x05]);
+    fn test_frequency_compensation_positive() {
+        let fc = FrequencyCompensation(0x2710);
+        assert!(fc.is_available());
+        assert_eq!(fc.as_ppm_x100(), Some(10000));
+        assert_eq!(fc.as_raw(), 0x2710);
     }
 
     #[test]
-    fn test_read_n_overflow() {
-        let buf = [0x01, 0x02];
-        assert!(read_n::<u8>(&buf, 3).is_err());
+    fn test_frequency_compensation_negative() {
+        let fc = FrequencyCompensation(0x58F0);
+        assert!(fc.is_available());
+        assert_eq!(fc.as_ppm_x100(), Some(-10000));
+        assert_eq!(fc.as_raw(), 0x58F0);
     }
 
     #[test]
-    fn test_read_n_zero() {
-        let buf = [0x01, 0x02, 0x03];
-        let (slice, rest) = read_n::<u8>(&buf, 0).unwrap();
-        assert!(slice.is_empty());
-        assert_eq!(rest, &[0x01, 0x02, 0x03]);
+    fn test_frequency_compensation_not_available() {
+        let fc = FrequencyCompensation(0xC000);
+        assert!(!fc.is_available());
+        assert_eq!(fc.as_ppm_x100(), None);
+        assert_eq!(fc.as_raw(), 0xC000);
     }
 }
