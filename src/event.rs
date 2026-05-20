@@ -1478,6 +1478,45 @@ mod tests {
     }
 
     #[test]
+    fn parse_le_read_all_remote_features_complete() {
+        let mut data = [0u8; 256];
+        data[0] = 0x3e; // LE Meta event code
+        data[1] = 254; // param total
+        data[2] = 0x2B; // subevent: LE Read All Remote Features Complete (43)
+        data[3] = 0x00; // status = Success
+        data[4] = 0x01; // connection_handle
+        data[5] = 0x00; // connection_handle
+        data[6] = 0x01; // max_remote_page
+        data[7] = 0x01; // max_valid_page
+        data[8] = 0x01; // page0: LE Encryption
+        data[16] = 0x01; // page1: Monitoring Advertisers
+
+        let event = EventPacket::from_hci_bytes_complete(&data).unwrap();
+        assert!(matches!(event.kind, EventKind::Le));
+
+        let le = LeEventPacket::from_hci_bytes_complete(event.data).unwrap();
+        assert!(matches!(
+            le.kind,
+            crate::event::le::LeEventKind::LeReadAllRemoteFeaturesComplete
+        ));
+
+        let Event::Le(LeEvent::LeReadAllRemoteFeaturesComplete(e)) = Event::try_from(event).unwrap() else {
+            unreachable!()
+        };
+
+        assert_eq!(e.status, Status::SUCCESS);
+        assert_eq!(e.handle, ConnHandle::new(1));
+        assert_eq!(e.max_remote_page, 1);
+        assert_eq!(e.max_valid_page, 1);
+        assert_eq!(e.le_features.page0, LeFeatureMask::new().set_le_encryption(true));
+        assert_eq!(
+            e.le_features.page1,
+            LeFeatureMaskPage1::new().set_monitoring_advertisers(true)
+        );
+        assert_eq!(e.le_features.remaining, [0u8; 232]);
+    }
+
+    #[test]
     fn parse_le_utp_receive() {
         let data = [
             0x3e, 5,    // event header: LE Meta, param total = 5

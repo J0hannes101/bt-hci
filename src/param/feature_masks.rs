@@ -1,5 +1,5 @@
 use super::param;
-use crate::{FixedSizeValue, FromHciBytes};
+use crate::{ByteAlignedValue, FixedSizeValue, FromHciBytes};
 
 /// A single page of extended LMP features.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -213,5 +213,32 @@ param! {
         (9, supports_shorter_connection_intervals_host, set_shorter_connection_intervals_host);
         (10, supports_le_flushable_acl_data, set_le_flushable_acl_data);
         (11, supports_channel_sounding_enhancement_1, set_channel_sounding_enhancement_1);
+    }
+}
+
+/// LE features for all pages.
+#[repr(C, packed)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct LeFeatures {
+    /// Page 0 features.
+    pub page0: LeFeatureMask,
+    /// Page 1 features.
+    pub page1: LeFeatureMaskPage1,
+    /// Remaining pages.
+    pub remaining: [u8; 232],
+}
+
+unsafe impl crate::FixedSizeValue for LeFeatures {
+    fn is_valid(_data: &[u8]) -> bool {
+        true
+    }
+}
+
+unsafe impl ByteAlignedValue for LeFeatures {}
+
+impl<'de> FromHciBytes<'de> for &'de LeFeatures {
+    fn from_hci_bytes(data: &'de [u8]) -> Result<(Self, &'de [u8]), crate::FromHciBytesError> {
+        <LeFeatures as ByteAlignedValue>::ref_from_hci_bytes(data)
     }
 }

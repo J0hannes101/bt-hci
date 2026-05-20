@@ -533,6 +533,16 @@ param! {
 
 param! {
     #[derive(Default)]
+    enum Framing {
+        #[default]
+        Unframed = 0,
+        FramedSegmentable = 1,
+        FramedUnsegmented = 2,
+    }
+}
+
+param! {
+    #[derive(Default)]
     enum TxStatus {
         #[default]
         Transmitted = 0,
