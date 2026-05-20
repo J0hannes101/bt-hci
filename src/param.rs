@@ -119,6 +119,8 @@ unsafe impl<const US: u32> FixedSizeValue for DurationU8<US> {
     }
 }
 
+unsafe impl<const US: u32> ByteAlignedValue for DurationU8<US> {}
+
 impl<const US: u32> DurationU8<US> {
     #[inline(always)]
     /// Create a new instance from raw value.

@@ -1,7 +1,9 @@
 //! LE Meta events [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core-54/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-9bfbd351-a103-f197-b85f-ffd9dcc92872)
 
 use crate::param::{
-    AddrKind, AdvHandle, BdAddr, BigHandle, BisConnHandle, ClockAccuracy, ConnHandle, CteKind, DataStatus, DoneStatus,
+    AddrKind, AdvHandle, BdAddr, BigHandle, BisConnHandle, ClockAccuracy, ConnHandle, CsMaxAntennaPaths,
+    CsModesSupported, CsNadmCapability, CsNumAntennae, CsNumConfig, CsRolesSupported, CsRttCapability,
+    CsSubfeaturesSupported, CsSwTime, CsSyncPhysSupported, CsTxSnrCapability, CteKind, DataStatus, DoneStatus,
     Duration, ExtDuration, FrameSpaceInitiator, Framing, FrequencyCompensation, LeAdvReports, LeConnRole,
     LeCsSubeventStepData, LeDirectedAdvertisingReportParam, LeExtAdvReports, LeFeatureMask, LeFeatures, LeIQSample,
     LePeriodicAdvertisingResponseReports, LeTxPowerReportingReason, PackedAbortReasons, PacketStatus, PhyKind, PhyMask,
@@ -531,6 +533,32 @@ le_events! {
         max_remote_page: u8,
         max_valid_page: u8,
         le_features: &'a LeFeatures,
+    }
+
+    /// LE CS Read Remote Supported Capabilities Complete event [v1] [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-6a607b83-67b0-0bf0-3c63-b71ccd8a918d)
+    struct LeCsReadRemoteSupportedCapabilitiesComplete(44) {
+        status: Status,
+        handle: ConnHandle,
+        num_config_supported: CsNumConfig,
+        max_consecutive_procedures_supported: u16,
+        num_antennae_supported: CsNumAntennae,
+        max_antenna_paths_supported: CsMaxAntennaPaths,
+        roles_supported: CsRolesSupported,
+        modes_supported: CsModesSupported,
+        rtt_capability: CsRttCapability,
+        rtt_aa_only_n: u8,
+        rtt_sounding_n: u8,
+        rtt_random_sequence_n: u8,
+        nadm_sounding_capability: CsNadmCapability,
+        nadm_random_capability: CsNadmCapability,
+        cs_sync_phys_supported: CsSyncPhysSupported,
+        subfeatures_supported: CsSubfeaturesSupported,
+        t_ip1_times_supported: u16,
+        t_ip2_times_supported: u16,
+        t_fcs_times_supported: u16,
+        t_pm_times_supported: u16,
+        t_sw_time_supported: CsSwTime,
+        tx_snr_capability: CsTxSnrCapability,
     }
 
     /// LE CS Subevent Result event [📖](https://www.bluetooth.com/wp-content/uploads/Files/Specification/HTML/Core_v6.3/out/en/host-controller-interface/host-controller-interface-functional-specification.html#UUID-fd033d23-c560-45ed-27e6-4a5da97b7ba4)

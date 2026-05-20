@@ -1160,6 +1160,109 @@ impl FusedIterator for LeCsSubeventStepDataIter<'_> {}
 
 param! {
     #[derive(Default)]
+    enum CsNumConfig {
+        #[default]
+        Config1 = 1,
+        Config2 = 2,
+        Config3 = 3,
+        Config4 = 4,
+    }
+}
+
+param! {
+    #[derive(Default)]
+    enum CsNumAntennae {
+        #[default]
+        Ant1 = 1,
+        Ant2 = 2,
+        Ant3 = 3,
+        Ant4 = 4,
+    }
+}
+
+param! {
+    #[derive(Default)]
+    enum CsMaxAntennaPaths {
+        #[default]
+        Paths1 = 1,
+        Paths2 = 2,
+        Paths3 = 3,
+        Paths4 = 4,
+    }
+}
+
+param! {
+    bitfield CsRolesSupported[1] {
+        (0, initiator, set_initiator);
+        (1, reflector, set_reflector);
+    }
+}
+
+param! {
+    bitfield CsModesSupported[1] {
+        (0, mode3, set_mode3);
+    }
+}
+
+param! {
+    bitfield CsRttCapability[1] {
+        (0, aa_accuracy_10ns, set_aa_accuracy_10ns);
+        (1, sounding_accuracy_10ns, set_sounding_accuracy_10ns);
+        (2, random_seq_accuracy_10ns, set_random_seq_accuracy_10ns);
+        (3, rtt_2m_aa_accuracy_10ns, set_rtt_2m_aa_accuracy_10ns);
+        (4, rtt_2m_sounding_accuracy_10ns, set_rtt_2m_sounding_accuracy_10ns);
+        (5, rtt_2m_random_seq_accuracy_10ns, set_rtt_2m_random_seq_accuracy_10ns);
+    }
+}
+
+param! {
+    bitfield CsNadmCapability[2] {
+        (0, phase, set_phase);
+        (1, amplitude, set_amplitude);
+    }
+}
+
+param! {
+    bitfield CsSyncPhysSupported[1] {
+        (1, le2m, set_le2m);
+        (2, le2m2bt, set_le2m2bt);
+    }
+}
+
+param! {
+    bitfield CsSubfeaturesSupported[2] {
+        (1, no_frequency_actuation_error, set_no_frequency_actuation_error);
+        (2, channel_selection_algorithm_3c, set_channel_selection_algorithm_3c);
+        (3, phase_based_ranging, set_phase_based_ranging);
+        (4, ipt_in_reflector, set_ipt_in_reflector);
+        (5, rtt_accuracy_per_phy, set_rtt_accuracy_per_phy);
+    }
+}
+
+param! {
+    #[derive(Default)]
+    enum CsSwTime {
+        #[default]
+        NotSupported = 0,
+        Us1 = 1,
+        Us2 = 2,
+        Us4 = 4,
+        Us10 = 10,
+    }
+}
+
+param! {
+    bitfield CsTxSnrCapability[1] {
+        (0, snr18db, set_snr18db);
+        (1, snr21db, set_snr21db);
+        (2, snr24db, set_snr24db);
+        (3, snr27db, set_snr27db);
+        (4, snr30db, set_snr30db);
+    }
+}
+
+param! {
+    #[derive(Default)]
     enum DoneStatus {
         #[default]
         Complete = 0,

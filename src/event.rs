@@ -1517,6 +1517,111 @@ mod tests {
     }
 
     #[test]
+    fn parse_le_cs_read_remote_supported_capabilities_complete_v1() {
+        let data = [
+            0x3e, 32,   // event header: LE Meta, param total = 32
+            0x2C, // subevent: LE CS Read Remote Supported Capabilities Complete [v1] (44)
+            0x00, // status = Success
+            0x01, 0x00, // connection_handle = 1
+            0x02, // num_config_supported = 2
+            0x05, 0x00, // max_consecutive_procedures_supported = 5
+            0x02, // num_antennae_supported = 2
+            0x02, // max_antenna_paths_supported = 2
+            0x03, // roles_supported = Initiator | Reflector
+            0x01, // modes_supported = Mode-3
+            0x01, // rtt_capability
+            10,   // rtt_aa_only_n
+            10,   // rtt_sounding_n
+            10,   // rtt_random_sequence_n
+            0x03, 0x00, // nadm_sounding_capability = phase + amplitude
+            0x03, 0x00, // nadm_random_capability = phase + amplitude
+            0x06, // cs_sync_phys_supported = LE 2M | LE 2M 2BT
+            0x3E, 0x00, // subfeatures_supported = bits 1-5
+            0x7F, 0x00, // t_ip1_times_supported = bits 0-6
+            0x7F, 0x00, // t_ip2_times_supported = bits 0-6
+            0xFF, 0x01, // t_fcs_times_supported = bits 0-8
+            0x03, 0x00, // t_pm_times_supported = bits 0-1
+            0x0A, // t_sw_time_supported = 10 us
+            0x1F, // tx_snr_capability = bits 0-4
+        ];
+
+        let event = EventPacket::from_hci_bytes_complete(&data).unwrap();
+        assert!(matches!(event.kind, EventKind::Le));
+
+        let le = LeEventPacket::from_hci_bytes_complete(event.data).unwrap();
+        assert!(matches!(
+            le.kind,
+            crate::event::le::LeEventKind::LeCsReadRemoteSupportedCapabilitiesComplete
+        ));
+
+        let Event::Le(LeEvent::LeCsReadRemoteSupportedCapabilitiesComplete(e)) = Event::try_from(event).unwrap() else {
+            unreachable!()
+        };
+
+        assert_eq!(e.status, Status::SUCCESS);
+        assert_eq!(e.handle, ConnHandle::new(1));
+        assert_eq!(e.num_config_supported, CsNumConfig::Config2);
+        assert_eq!(e.max_consecutive_procedures_supported, 5);
+        assert_eq!(e.num_antennae_supported, CsNumAntennae::Ant2);
+        assert_eq!(e.max_antenna_paths_supported, CsMaxAntennaPaths::Paths2);
+        assert_eq!(
+            e.roles_supported,
+            crate::param::CsRolesSupported::new()
+                .set_initiator(true)
+                .set_reflector(true)
+        );
+        assert_eq!(e.modes_supported, crate::param::CsModesSupported::new().set_mode3(true));
+        assert_eq!(
+            e.rtt_capability,
+            crate::param::CsRttCapability::new().set_aa_accuracy_10ns(true)
+        );
+        assert_eq!(e.rtt_aa_only_n, 10);
+        assert_eq!(e.rtt_sounding_n, 10);
+        assert_eq!(e.rtt_random_sequence_n, 10);
+        assert_eq!(
+            e.nadm_sounding_capability,
+            crate::param::CsNadmCapability::new()
+                .set_phase(true)
+                .set_amplitude(true)
+        );
+        assert_eq!(
+            e.nadm_random_capability,
+            crate::param::CsNadmCapability::new()
+                .set_phase(true)
+                .set_amplitude(true)
+        );
+        assert_eq!(
+            e.cs_sync_phys_supported,
+            crate::param::CsSyncPhysSupported::new()
+                .set_le2m(true)
+                .set_le2m2bt(true)
+        );
+        assert_eq!(
+            e.subfeatures_supported,
+            crate::param::CsSubfeaturesSupported::new()
+                .set_no_frequency_actuation_error(true)
+                .set_channel_selection_algorithm_3c(true)
+                .set_phase_based_ranging(true)
+                .set_ipt_in_reflector(true)
+                .set_rtt_accuracy_per_phy(true)
+        );
+        assert_eq!(e.t_ip1_times_supported, 0x007F);
+        assert_eq!(e.t_ip2_times_supported, 0x007F);
+        assert_eq!(e.t_fcs_times_supported, 0x01FF);
+        assert_eq!(e.t_pm_times_supported, 0x0003);
+        assert_eq!(e.t_sw_time_supported, CsSwTime::Us10);
+        assert_eq!(
+            e.tx_snr_capability,
+            crate::param::CsTxSnrCapability::new()
+                .set_snr18db(true)
+                .set_snr21db(true)
+                .set_snr24db(true)
+                .set_snr27db(true)
+                .set_snr30db(true)
+        );
+    }
+
+    #[test]
     fn parse_le_utp_receive() {
         let data = [
             0x3e, 5,    // event header: LE Meta, param total = 5
